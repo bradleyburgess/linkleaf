@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LinkLeaf.Api/LinkLeaf.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LinkLeaf.Api.Tests/LinkLeaf.Api.Tests.csproj" />
+  </Folder>
+</Solution>
