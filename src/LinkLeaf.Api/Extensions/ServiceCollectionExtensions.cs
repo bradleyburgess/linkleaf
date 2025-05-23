@@ -23,6 +23,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUsersRepository, UsersRepository>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ITokenHasher, TokenHasher>();
+        services.AddScoped<IBookmarksRepository, BookmarksRepository>();
+        services.AddScoped<IBookmarksService, BookmarksService>();
 
         services.AddControllers();
         services.AddOpenApi();
