@@ -27,4 +27,10 @@ public class BookmarksService(IBookmarksRepository bookmarksRepository) : IBookm
         var bookmarks = await _bookmarksRepository.GetBookmarksByUserAsync(userId);
         return bookmarks;
     }
+
+    public async Task<Bookmark?> GetBookmarkByIdAsync(Guid id)
+    {
+        var bookmark = await _bookmarksRepository.GetBookmarkByIdAsync(id);
+        return bookmark;
+    }
 }

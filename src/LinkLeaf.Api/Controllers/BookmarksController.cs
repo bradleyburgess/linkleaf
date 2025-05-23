@@ -43,6 +43,7 @@ public class BookmarksController(IBookmarksService bookmarksService) : Controlle
 
         return Ok(ApiResponse<AddBookmarkResponseDto>.SuccessResponse(new AddBookmarkResponseDto()
         {
+            Id = bookmark.Id,
             Title = bookmark!.Title ?? "",
             Url = bookmark!.Url,
             UserId = bookmark.UserId,
@@ -73,6 +74,32 @@ public class BookmarksController(IBookmarksService bookmarksService) : Controlle
             new GetUserBookmarksResponseDto()
             {
                 Bookmarks = bookmarkDtos
+            }
+        ));
+    }
+
+    [Authorize]
+    [HttpGet("{id}")]
+    public async Task<ActionResult<GetBookmarkByIdResponseDto>> GetBookmarkById(Guid id)
+    {
+        var userResult = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+        if (!userResult)
+            return BadRequest();
+
+        var bookmark = await _service.GetBookmarkByIdAsync(id);
+        if (bookmark?.UserId != userId)
+            return Unauthorized();
+
+        return Ok(ApiResponse<GetBookmarkByIdResponseDto>.SuccessResponse(
+            new GetBookmarkByIdResponseDto()
+            {
+                Bookmark = new BookmarkDto()
+                {
+                    Id = bookmark.Id,
+                    Title = bookmark.Title,
+                    Url = bookmark.Url,
+                    UserId = bookmark.UserId
+                }
             }
         ));
     }
