@@ -41,18 +41,4 @@ public class UsersRepository(AppDbContext dbContext) : IUsersRepository
             await _db.SaveChangesAsync();
         }
     }
-
-    public async Task UpdateRefreshToken(Guid id, string token, DateTime expirationDate)
-    {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
-        if (user is not null)
-        {
-            user.RefreshToken = token;
-            user.RefreshTokenExpiration = expirationDate;
-            await _db.SaveChangesAsync();
-        }
-    }
-
-    public async Task<User?> FindByRefreshToken(string token) =>
-        await _db.Users.FirstOrDefaultAsync(u => u.RefreshToken == token);
 }

@@ -1,20 +1,25 @@
 using System.Net;
 using LinkLeaf.Api.DTOs;
 using LinkLeaf.Api.DTOs.Auth;
+using LinkLeaf.Api.Options;
 using LinkLeaf.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace LinkLeaf.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(IAuthService authService, IConfiguration config) : ControllerBase
+public class AuthController(IAuthService authService, IOptions<JwtOptions> jwtOptions) : ControllerBase
 {
     private readonly IAuthService _authService = authService;
-    private readonly int refreshTokenExpirationMinutes = config.GetValue<int>("Jwt:refreshTokenExpirationMinutes");
+    private readonly int refreshTokenExpirationMinutes = jwtOptions.Value.RefreshTokenExpirationMinutes;
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponseDto>> Register(RegisterRequestDto request)
+    public async Task<ActionResult<AuthResponseDto>> Register(
+        RegisterRequestDto request,
+        [FromHeader(Name = "X-Client")] string? xClient
+    )
     {
         request.Email = request.Email.ToLower();
 
@@ -36,13 +41,18 @@ public class AuthController(IAuthService authService, IConfiguration config) : C
             AccessToken = tokens.AccessToken,
             User = user
         };
+        if (string.Equals(xClient, "mobile", StringComparison.CurrentCultureIgnoreCase))
+            response.RefreshToken = tokens.RefreshToken;
         SetRefreshTokenCookie(Response, tokens.RefreshToken);
 
         return Ok(ApiResponse<AuthResponseDto>.SuccessResponse(data: response));
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponseDto>> Login(LoginRequestDto request)
+    public async Task<ActionResult<AuthResponseDto>> Login(
+        LoginRequestDto request,
+        [FromHeader(Name = "X-Client")] string? xClient
+    )
     {
         request.Email = request.Email.ToLower();
 
@@ -63,6 +73,8 @@ public class AuthController(IAuthService authService, IConfiguration config) : C
             AccessToken = tokens.AccessToken,
             User = user
         };
+        if (string.Equals(xClient, "mobile", StringComparison.CurrentCultureIgnoreCase))
+            response.RefreshToken = tokens.RefreshToken;
 
         SetRefreshTokenCookie(Response, tokens.RefreshToken);
 
@@ -70,15 +82,20 @@ public class AuthController(IAuthService authService, IConfiguration config) : C
     }
 
     [HttpPost("refresh-token")]
-    public async Task<ActionResult<AuthResponseDto?>> RefreshToken()
+    public async Task<ActionResult<AuthResponseDto?>> RefreshToken(
+        [FromHeader(Name = "X-Refresh-Token")] string? refreshTokenHeader,
+        [FromHeader(Name = "X-Client")] string? xClient
+    )
     {
-        var token = Request.Cookies["refreshToken"];
+        Request.Cookies.TryGetValue("refreshToken", out var refreshTokenCookie);
+        var token = refreshTokenCookie ?? refreshTokenHeader;
+
         if (token is null)
             return BadRequest(ApiResponse<AuthResponseDto>.FailureResponse("Invalid refresh token"));
         var result = await _authService.RefreshTokens(token);
         if (result is null)
             return BadRequest(ApiResponse<AuthResponseDto>.FailureResponse("Invalid refresh token"));
-            
+
         var (tokens, userDto) = result.Value;
 
         var response = new AuthResponseDto()
@@ -86,6 +103,8 @@ public class AuthController(IAuthService authService, IConfiguration config) : C
             AccessToken = tokens.AccessToken,
             User = userDto
         };
+        if (string.Equals(xClient, "mobile", StringComparison.CurrentCultureIgnoreCase))
+            response.RefreshToken = tokens.RefreshToken;
 
         SetRefreshTokenCookie(Response, tokens.RefreshToken);
 
