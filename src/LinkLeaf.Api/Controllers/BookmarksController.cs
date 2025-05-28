@@ -7,6 +7,7 @@ using LinkLeaf.Api.DTOs;
 using LinkLeaf.Api.DTOs.Bookmarks;
 using LinkLeaf.Api.Models;
 using LinkLeaf.Api.Services;
+using LinkLeaf.Api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,14 @@ public class BookmarksController(IBookmarksService bookmarksService) : Controlle
     public async Task<ActionResult<AddBookmarkResponseDto>> AddBookmark(AddBookmarkRequestDto request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ApiResponse<AddBookmarkResponseDto>.FailureResponse("Invalid bookmark"));
+        {
+            var errors = ControllerUtils.GetModelErrors(ModelState);
+            return BadRequest(ApiResponse<AddBookmarkResponseDto>.FailureResponse(
+                code: ApiStatusCode.VALIDATION_ERROR,
+                errors: errors
+            ));
+        }
+
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId is null)

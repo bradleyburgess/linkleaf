@@ -89,7 +89,7 @@ public class AuthService(
             return null;
 
         var hashedToken = _tokenHasher.Hash(refreshToken);
-        var savedToken = await _refreshTokensRepo.FindHashedToken(hashedToken);
+        var savedToken = await _refreshTokensRepo.FindUserByHashedToken(hashedToken);
         if (savedToken is null)
             return null;
 

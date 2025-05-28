@@ -25,7 +25,7 @@ public class RefreshTokensRepository(AppDbContext dbContext, IOptions<JwtOptions
         return refreshToken;
     }
 
-    public async Task<RefreshToken?> FindHashedToken(string token)
+    public async Task<RefreshToken?> FindUserByHashedToken(string token)
     {
         var savedToken = await _db.RefreshTokens
             .Include(t => t.User)
