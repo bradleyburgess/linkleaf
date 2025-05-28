@@ -4,19 +4,19 @@ using LinkLeaf.Api.Controllers;
 using LinkLeaf.Api.DTOs;
 using LinkLeaf.Api.DTOs.Auth;
 using LinkLeaf.Api.DTOs.User;
+using LinkLeaf.Api.Options;
 using LinkLeaf.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace LinkLeaf.Api.Tests.Controllers;
 
 public class AuthControllerRegisterTests
 {
     private readonly Mock<IAuthService> _authServiceMock;
-    private readonly IConfiguration _configuration;
+    private readonly IOptions<JwtOptions> _jwtOptions;
     private readonly AuthController _controller;
 
     public AuthControllerRegisterTests()
@@ -27,11 +27,9 @@ public class AuthControllerRegisterTests
         {
             { "Jwt:RefreshTokenExpirationMinutes", "60" }
         };
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(config)
-            .Build();
+        _jwtOptions = Microsoft.Extensions.Options.Options.Create<JwtOptions>(new JwtOptions());
 
-        _controller = new AuthController(_authServiceMock.Object, _configuration);
+        _controller = new AuthController(_authServiceMock.Object, _jwtOptions);
 
         // Required to set cookies in the controller
         var httpContext = new DefaultHttpContext();
@@ -80,7 +78,9 @@ public class AuthControllerRegisterTests
 
         // Assert
         var badResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var badResultData = Assert.IsType<ApiResponse<AuthResponseDto>>(badResult.Value);
         Assert.Equal(400, badResult.StatusCode);
+        Assert.Equal(ApiStatusCode.VALIDATION_ERROR, badResultData.Code);
     }
 
     [Fact]
@@ -96,7 +96,9 @@ public class AuthControllerRegisterTests
 
         // Assert
         var badResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var badResultData = Assert.IsType<ApiResponse<AuthResponseDto>>(badResult.Value);
         Assert.Equal(400, badResult.StatusCode);
+        Assert.Equal(ApiStatusCode.VALIDATION_ERROR, badResultData.Code);
     }
 
     [Fact]
@@ -106,13 +108,17 @@ public class AuthControllerRegisterTests
         var request = new RegisterRequestDto { Email = "Test@Example", Password = "abc", PasswordConfirm = "abc" };
 
         ValidateModel(request);
+        Assert.False(_controller.ModelState.IsValid);
+        Assert.True(_controller.ModelState.ContainsKey(nameof(request.Email)));
 
         // Act
         var result = await _controller.Register(request);
 
         // Assert
         var badResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var badResultData = Assert.IsType<ApiResponse<AuthResponseDto>>(badResult.Value);
         Assert.Equal(400, badResult.StatusCode);
+        Assert.Equal(ApiStatusCode.VALIDATION_ERROR, badResultData.Code);
     }
 
     private void ValidateModel(object model)

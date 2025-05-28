@@ -11,6 +11,7 @@ namespace LinkLeaf.Api.Services;
 
 public class AuthService(
     IJwtService tokenService,
+    IRefreshTokensRepository refreshTokensRepository,
     IUsersRepository usersRepository,
     ITokenHasher tokenHasher,
     IOptions<JwtOptions> jwtOptions
@@ -18,6 +19,7 @@ public class AuthService(
 {
     private readonly IJwtService _tokenService = tokenService;
     private readonly IUsersRepository _usersRepo = usersRepository;
+    private readonly IRefreshTokensRepository _refreshTokensRepo = refreshTokensRepository;
     private readonly ITokenHasher _tokenHasher = tokenHasher;
     private readonly int _refreshTokenExpirationMinutes = jwtOptions.Value.RefreshTokenExpirationMinutes;
 
@@ -35,11 +37,7 @@ public class AuthService(
 
         var tokens = GenerateTokens(user);
 
-        await _usersRepo.UpdateRefreshToken(
-            id: user.Id,
-            token: _tokenHasher.Hash(tokens.RefreshToken),
-            expirationDate: DateTime.UtcNow.AddMinutes(_refreshTokenExpirationMinutes)
-        );
+        await _refreshTokensRepo.AddUserRefreshToken(user.Id, _tokenHasher.Hash(tokens.RefreshToken));
 
         return (
             tokens, new UserDto()
@@ -68,12 +66,12 @@ public class AuthService(
         newUser.PasswordHash = hashedPassword;
 
         var tokens = GenerateTokens(newUser);
-        newUser.RefreshToken = _tokenHasher.Hash(tokens.RefreshToken);
-        newUser.RefreshTokenExpiration = DateTime.UtcNow.AddMinutes(_refreshTokenExpirationMinutes);
+        var refreshToken = _tokenHasher.Hash(tokens.RefreshToken);
 
         var user = await _usersRepo.AddAsync(newUser);
         if (user is null)
             return null;
+        await _refreshTokensRepo.AddUserRefreshToken(user.Id, refreshToken);
 
         return (
                 tokens,
@@ -91,23 +89,17 @@ public class AuthService(
             return null;
 
         var hashedToken = _tokenHasher.Hash(refreshToken);
-        var user = await _usersRepo.FindByRefreshToken(hashedToken);
-        if (user is null)
+        var savedToken = await _refreshTokensRepo.FindUserByHashedToken(hashedToken);
+        if (savedToken is null)
             return null;
 
-        if (
-            user.RefreshTokenExpiration < DateTime.UtcNow ||
-            user.RefreshToken != hashedToken
-        )
+        if (savedToken.TokenExpiresAt < DateTime.UtcNow)
             return null;
 
+        var user = savedToken.User;
 
         var tokens = GenerateTokens(user);
-        await _usersRepo.UpdateRefreshToken(
-            id: user.Id,
-            refreshToken = _tokenHasher.Hash(tokens.RefreshToken),
-            expirationDate: DateTime.UtcNow.AddMinutes(_refreshTokenExpirationMinutes)
-        );
+        await _refreshTokensRepo.AddUserRefreshToken(user.Id, _tokenHasher.Hash(tokens.RefreshToken));
 
         return (
             tokens,
